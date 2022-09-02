@@ -29,6 +29,7 @@ from PySide2.QtGui import QImage, QPixmap, QFont, QPainter, QPen, QCursor
 import rc_resources
 
 
+
 class ImageViewer(QWidget):
 
     def __init__(self):
@@ -53,6 +54,7 @@ class ImageViewer(QWidget):
 
         self.pixmap = None
         self.isDrawable = True
+        self.brushPixmap = QPixmap(":/assets/cursor.png")
         self.setBrush()
 
     def setBrush(self, color=Qt.white, size=25, factor=1):
@@ -61,7 +63,7 @@ class ImageViewer(QWidget):
         '''
         self.brushColor = color
         self.brushSize = size
-        self.drawingCursor = QCursor(QPixmap(":/assets/cursor.png").scaledToHeight(self.brushSize*factor))
+        self.drawingCursor = QCursor(self.brushPixmap.scaledToHeight(self.brushSize*factor))
 
     def setImage(self, path):
         '''
@@ -77,6 +79,8 @@ class ImageViewer(QWidget):
                 if mouseEvent.buttons() == Qt.MiddleButton: # Get pan coordinates reference with middle click
                     QApplication.setOverrideCursor(Qt.ClosedHandCursor)
                     self.panReferenceClick = mouseEvent.pos()
+                elif mouseEvent.buttons() == Qt.LeftButton and mouseEvent.modifiers() == Qt.ControlModifier: # Get coordinates reference for brush size
+                    self.brushReference = mouseEvent.pos() # Cursor will be drawed below. TO DO need refactoring.
             if source is self.view:
                 if mouseEvent.buttons() == Qt.LeftButton: # Get drawing coordinates reference with left click
                     QApplication.setOverrideCursor(self.drawingCursor)
@@ -90,8 +94,22 @@ class ImageViewer(QWidget):
                     self.scrollArea.horizontalScrollBar().setValue(self.scrollArea.horizontalScrollBar().value() + (self.panReferenceClick.x() - moveEvent.pos().x()))
                     self.scrollArea.verticalScrollBar().setValue(self.scrollArea.verticalScrollBar().value() + (self.panReferenceClick.y() - moveEvent.pos().y()))
                     self.panReferenceClick = moveEvent.pos();
+                elif moveEvent.buttons() == Qt.LeftButton and moveEvent.modifiers() == Qt.ControlModifier:
+                    if moveEvent.pos().x() - self.brushReference.x() > 25:
+                        self.brushSize += 5
+                        self.setBrush(size=self.brushSize, factor=self.currentZoom)
+                        self.cursor().setPos(self.mapToGlobal(self.brushReference))
+                        QApplication.restoreOverrideCursor();
+                        QApplication.setOverrideCursor(self.drawingCursor)
+                    elif moveEvent.pos().x() - self.brushReference.x() <  -25:
+                        self.brushSize -= 5
+                        self.setBrush(size=max(self.brushSize, 5), factor=self.currentZoom)
+                        self.cursor().setPos(self.mapToGlobal(self.brushReference))
+                        QApplication.restoreOverrideCursor();
+                        QApplication.setOverrideCursor(self.drawingCursor)
+
             elif source is self.view:
-                if moveEvent.buttons() == Qt.LeftButton and self.isDrawable: # Draw with left click pressed
+                if moveEvent.buttons() == Qt.LeftButton and self.isDrawable and moveEvent.modifiers() == Qt.NoModifier: # Draw with left click pressed
                     painter = QPainter(self.pixmap)
                     painter.setPen(QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap))
                     painter.drawLine(self.drawReference, QPoint((event.pos().x()*self.view.pixmap().size().width())/self.view.size().width(), (event.pos().y()*self.view.pixmap().size().height())/self.view.size().height()))
@@ -108,14 +126,14 @@ class ImageViewer(QWidget):
             if wheelEvent.angleDelta().y() > 0:
                 factor = 1.25
                 self.currentZoom *= factor
-                self.setBrush(factor=self.currentZoom)
+                self.setBrush(size=self.brushSize, factor=self.currentZoom)
                 self.view.setFixedSize(factor*self.view.size())
                 self.scrollArea.horizontalScrollBar().setValue(factor*self.scrollArea.horizontalScrollBar().value() + ((factor-1)*self.scrollArea.horizontalScrollBar().pageStep()/2))
                 self.scrollArea.verticalScrollBar().setValue(factor*self.scrollArea.verticalScrollBar().value() + ((factor-1)*self.scrollArea.verticalScrollBar().pageStep()/2))
             else:
                 factor = 0.8
                 self.currentZoom *= factor
-                self.setBrush(factor=self.currentZoom)
+                self.setBrush(size=self.brushSize, factor=self.currentZoom)
                 self.view.setFixedSize(factor*self.view.size())
                 self.scrollArea.horizontalScrollBar().setValue(factor*self.scrollArea.horizontalScrollBar().value() + ((factor-1)*self.scrollArea.horizontalScrollBar().pageStep()/2))
                 self.scrollArea.verticalScrollBar().setValue(factor*self.scrollArea.verticalScrollBar().value() + ((factor-1)*self.scrollArea.verticalScrollBar().pageStep()/2))

@@ -5,6 +5,7 @@ Basic image viewer widget:
 * Zoom with mouse wheel
 * Pan with mouse wheel click
 * Draw with left click
-* Custom brush cursor (shape and size)
+* Custom brush cursor
+* Brush size Ctrl + Left Mouse drag
 
 ![](readme.gif)
