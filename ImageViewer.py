@@ -23,9 +23,9 @@ SOFTWARE.
 '''
 
 
-from PySide2.QtWidgets import QOpenGLWidget, QGraphicsScene, QGraphicsView, QGraphicsPixmapItem, QApplication, QWidget, QScrollArea, QAction, QLabel
+from PySide2.QtWidgets import QOpenGLWidget, QUndoStack, QGraphicsScene, QGraphicsView, QGraphicsPixmapItem, QApplication, QWidget, QScrollArea, QAction, QLabel
 from PySide2.QtCore import QEvent, Signal, Slot, Qt, QPoint
-from PySide2.QtGui import QImage, QPixmap, QFont, QPainter, QPen, QCursor
+from PySide2.QtGui import QImage, QPixmap, QFont, QPainter, QPen, QCursor, QKeySequence
 import rc_resources
 
 
@@ -35,8 +35,14 @@ class ImageViewer(QGraphicsView):
     def __init__(self):
         super().__init__()
 
-        self.setMouseTracking(True);
+        self.setMouseTracking(False);
         self.setViewport(QOpenGLWidget())
+
+        self.undoAction = QAction(self, self.tr("Undo"))
+        self.undoAction.setShortcut(QKeySequence(QKeySequence.Undo))
+        self.undoAction.triggered.connect(self.undo)
+        self.addAction(self.undoAction)
+        self.painterStack = []
 
         self.scene = QGraphicsScene(self)
         self.image = QGraphicsPixmapItem()
@@ -67,7 +73,6 @@ class ImageViewer(QGraphicsView):
         Open an image from a file.
         '''
         self.pixmap = QPixmap(path)
-        self.painter = QPainter(self.pixmap)
         self.image.setPixmap(self.pixmap)
 
     def wheelEvent(self, event):
@@ -123,7 +128,17 @@ class ImageViewer(QGraphicsView):
                 QApplication.setOverrideCursor(self.drawingCursor)
 
         if event.buttons() == Qt.LeftButton and self.isDrawable and event.modifiers() == Qt.NoModifier: # Draw with left click pressed
+            self.painter.begin(self.pixmap)
             self.painter.setPen(QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap))
             self.painter.drawLine(self.drawReference, self.mapToScene(event.pos()))
             self.drawReference = self.mapToScene(event.pos())
+            self.painterStack.append(self.image.pixmap())
+            self.painter.end()
             self.image.setPixmap(self.pixmap)
+
+    def undo(self):
+        '''
+        Undo drawing.
+        '''
+        self.pixmap = self.painterStack.pop()
+        self.image.setPixmap(self.pixmap)
