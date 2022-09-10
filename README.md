@@ -7,5 +7,6 @@ Basic image viewer widget:
 * Draw with left click
 * Custom brush cursor
 * Brush size Ctrl + Left Mouse drag
+* Undo drawing
 
 ![](readme.gif)

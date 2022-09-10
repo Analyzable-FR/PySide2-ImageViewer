@@ -29,13 +29,12 @@ from PySide2.QtGui import QImage, QPixmap, QFont, QPainter, QPen, QCursor, QKeyS
 import rc_resources
 
 
-
 class ImageViewer(QGraphicsView):
 
     def __init__(self):
         super().__init__()
 
-        self.setMouseTracking(False);
+        self.setMouseTracking(False)
         self.setViewport(QOpenGLWidget())
 
         self.undoAction = QAction(self, self.tr("Undo"))
@@ -66,7 +65,8 @@ class ImageViewer(QGraphicsView):
         '''
         self.brushColor = color
         self.brushSize = size
-        self.drawingCursor = QCursor(self.brushPixmap.scaledToHeight(self.brushSize*factor))
+        self.drawingCursor = QCursor(
+            self.brushPixmap.scaledToHeight(self.brushSize*factor))
 
     def setImage(self, path):
         '''
@@ -93,52 +93,66 @@ class ImageViewer(QGraphicsView):
         '''
         Pan with middle click, draw with left, change brush size with CTRL + left click + horizontal drag.
         '''
-        if event.buttons() == Qt.MiddleButton: # Get pan coordinates reference with middle click
+        if event.buttons() == Qt.MiddleButton:  # Get pan coordinates reference with middle click
             QApplication.setOverrideCursor(Qt.ClosedHandCursor)
             self.panReferenceClick = event.pos()
-        elif event.buttons() == Qt.LeftButton and event.modifiers() == Qt.ControlModifier: # Get coordinates reference for brush size
-            self.brushReference = event.pos() # Cursor will be drawed below. TO DO need refactoring.
-        if event.buttons() == Qt.LeftButton: # Get drawing coordinates reference with left click
+        # Get coordinates reference for brush size
+        elif event.buttons() == Qt.LeftButton and event.modifiers() == Qt.ControlModifier:
+            # Cursor will be drawed below. TO DO need refactoring.
+            self.brushReference = event.pos()
+        if event.buttons() == Qt.LeftButton:  # Get drawing coordinates reference with left click
             QApplication.setOverrideCursor(self.drawingCursor)
             self.drawReference = self.mapToScene(event.pos())
 
     def mouseReleaseEvent(self, event):
-        QApplication.restoreOverrideCursor();
+        QApplication.restoreOverrideCursor()
 
     def mouseMoveEvent(self, event):
         '''
         Pan with middle click, draw with left, change brush size with CTRL + left click + horizontal drag.
         '''
-        if event.buttons() == Qt.MiddleButton: # pan with middle click pressed
-            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() + (self.panReferenceClick.x() - event.pos().x()))
-            self.verticalScrollBar().setValue(self.verticalScrollBar().value() + (self.panReferenceClick.y() - event.pos().y()))
-            self.panReferenceClick = event.pos();
+        if event.buttons() == Qt.MiddleButton:  # pan with middle click pressed
+            self.horizontalScrollBar().setValue(self.horizontalScrollBar().value() +
+                                                (self.panReferenceClick.x() - event.pos().x()))
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() +
+                                              (self.panReferenceClick.y() - event.pos().y()))
+            self.panReferenceClick = event.pos()
         elif event.buttons() == Qt.LeftButton and event.modifiers() == Qt.ControlModifier:
             if event.pos().x() - self.brushReference.x() > 25:
                 self.brushSize += 5
                 self.setBrush(size=self.brushSize, factor=self.currentZoom)
                 self.cursor().setPos(self.mapToGlobal(self.brushReference))
-                QApplication.restoreOverrideCursor();
+                QApplication.restoreOverrideCursor()
                 QApplication.setOverrideCursor(self.drawingCursor)
-            elif event.pos().x() - self.brushReference.x() <  -25:
+            elif event.pos().x() - self.brushReference.x() < -25:
                 self.brushSize -= 5
-                self.setBrush(size=max(self.brushSize, 5), factor=self.currentZoom)
+                self.setBrush(size=max(self.brushSize, 5),
+                              factor=self.currentZoom)
                 self.cursor().setPos(self.mapToGlobal(self.brushReference))
-                QApplication.restoreOverrideCursor();
+                QApplication.restoreOverrideCursor()
                 QApplication.setOverrideCursor(self.drawingCursor)
 
-        if event.buttons() == Qt.LeftButton and self.isDrawable and event.modifiers() == Qt.NoModifier: # Draw with left click pressed
+        if event.buttons() == Qt.LeftButton and self.isDrawable and event.modifiers() == Qt.NoModifier:  # Draw with left click pressed
             self.painter.begin(self.pixmap)
-            self.painter.setPen(QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap))
-            self.painter.drawLine(self.drawReference, self.mapToScene(event.pos()))
+            self.painter.setPen(
+                QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap))
+            self.painter.drawLine(self.drawReference,
+                                  self.mapToScene(event.pos()))
             self.drawReference = self.mapToScene(event.pos())
-            self.painterStack.append(self.image.pixmap())
+            self.addToUndoStack()
             self.painter.end()
             self.image.setPixmap(self.pixmap)
+
+    def addToUndoStack(self):
+        if len(self.painterStack) > 40:  # Avoid high memory usage
+            self.painterStack = [j for i, j in enumerate(
+                self.painterStack) if i % 2 == 0]
+        self.painterStack.append(self.image.pixmap())
 
     def undo(self):
         '''
         Undo drawing.
         '''
-        self.pixmap = self.painterStack.pop()
-        self.image.setPixmap(self.pixmap)
+        if self.painterStack:
+            self.pixmap = self.painterStack.pop()
+            self.image.setPixmap(self.pixmap)
