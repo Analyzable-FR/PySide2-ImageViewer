@@ -36,6 +36,7 @@ class ImageViewer(QGraphicsView):
 
         self.setMouseTracking(False)
         self.setViewport(QOpenGLWidget())
+        self.setAcceptDrops(True)
 
         self.undoAction = QAction(self, self.tr("Undo"))
         self.undoAction.setShortcut(QKeySequence(QKeySequence.Undo))
@@ -45,6 +46,7 @@ class ImageViewer(QGraphicsView):
 
         self.scene = QGraphicsScene(self)
         self.image = QGraphicsPixmapItem()
+        self.image.setAcceptDrops(True)
         self.scene.addItem(self.image)
         self.setScene(self.scene)
         self.setTransformationAnchor(QGraphicsView.AnchorViewCenter)
@@ -72,6 +74,7 @@ class ImageViewer(QGraphicsView):
         '''
         Open an image from a file.
         '''
+        self.clear()
         self.pixmap = QPixmap(path)
         self.image.setPixmap(self.pixmap)
 
@@ -156,3 +159,16 @@ class ImageViewer(QGraphicsView):
         if self.painterStack:
             self.pixmap = self.painterStack.pop()
             self.image.setPixmap(self.pixmap)
+
+    def clear(self):
+        self.pixmap = None
+        self.image.setPixmap(self.pixmap)
+        self.painterStack.clear()
+
+    def dropEvent(self, event):
+        mimeData = event.mimeData()
+        if mimeData.hasUrls():
+            self.setImage(mimeData.urls()[0].toLocalFile())
+
+    def dragEnterEvent(self, event):
+        event.acceptProposedAction()
