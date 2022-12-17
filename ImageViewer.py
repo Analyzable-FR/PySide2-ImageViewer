@@ -54,7 +54,6 @@ class ImageViewer(QGraphicsView):
 
         self.currentZoom = 1
 
-        self.pixmap = None
         self.isDrawable = True
         self.brushPixmap = QPixmap(":/assets/cursor.png")
         self.setBrush()
@@ -75,8 +74,7 @@ class ImageViewer(QGraphicsView):
         Open an image from a file.
         '''
         self.clear()
-        self.pixmap = QPixmap(path)
-        self.image.setPixmap(self.pixmap)
+        self.image.setPixmap(QPixmap(path))
 
     def wheelEvent(self, event):
         '''
@@ -91,6 +89,8 @@ class ImageViewer(QGraphicsView):
             self.currentZoom *= factor
             self.setBrush(size=self.brushSize, factor=self.currentZoom)
         self.scale(factor, factor)
+        event.accept()
+        super().wheelEvent(event)
 
     def mousePressEvent(self, event):
         '''
@@ -106,9 +106,11 @@ class ImageViewer(QGraphicsView):
         if event.buttons() == Qt.LeftButton:  # Get drawing coordinates reference with left click
             QApplication.setOverrideCursor(self.drawingCursor)
             self.drawReference = self.mapToScene(event.pos())
+        super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         QApplication.restoreOverrideCursor()
+        super().mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event):
         '''
@@ -136,7 +138,8 @@ class ImageViewer(QGraphicsView):
                 QApplication.setOverrideCursor(self.drawingCursor)
 
         if event.buttons() == Qt.LeftButton and self.isDrawable and event.modifiers() == Qt.NoModifier:  # Draw with left click pressed
-            self.painter.begin(self.pixmap)
+            pixmap = self.image.pixmap()
+            self.painter.begin(pixmap)
             self.painter.setPen(
                 QPen(self.brushColor, self.brushSize, Qt.SolidLine, Qt.RoundCap))
             self.painter.drawLine(self.drawReference,
@@ -144,7 +147,8 @@ class ImageViewer(QGraphicsView):
             self.drawReference = self.mapToScene(event.pos())
             self.addToUndoStack()
             self.painter.end()
-            self.image.setPixmap(self.pixmap)
+            self.image.setPixmap(pixmap)
+        super().mouseMoveEvent(event)
 
     def addToUndoStack(self):
         if len(self.painterStack) > 40:  # Avoid high memory usage
@@ -157,12 +161,10 @@ class ImageViewer(QGraphicsView):
         Undo drawing.
         '''
         if self.painterStack:
-            self.pixmap = self.painterStack.pop()
-            self.image.setPixmap(self.pixmap)
+            self.image.setPixmap(self.painterStack.pop())
 
     def clear(self):
-        self.pixmap = None
-        self.image.setPixmap(self.pixmap)
+        self.image.setPixmap(QPixmap())
         self.painterStack.clear()
 
     def dropEvent(self, event):
